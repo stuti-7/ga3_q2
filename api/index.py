@@ -26,23 +26,24 @@ class Request(BaseModel):
 
 @app.post("/answer-image")
 def answer(req: Request):
-    image_bytes = base64.b64decode(req.image_base64)
+    try:
+        image_bytes = base64.b64decode(req.image_base64)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[
-            req.question + "\nReturn ONLY the answer. If numeric, return only the number as a string. No units or explanation.",
-            types.Part.from_bytes(
-                data=image_bytes,
-                mime_type="image/png"
-            ),
-        ],
-    )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                req.question,
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type="image/png",
+                ),
+            ],
+        )
 
-    return {
-        "answer": response.text.strip()
-    }
+        return {"answer": response.text.strip()}
 
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/")
 def root():
