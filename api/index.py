@@ -17,6 +17,8 @@ app.add_middleware(
 )
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+FALLBACK_MODELS = [DEFAULT_MODEL, "gemini-2.0-flash", "gemini-2.0-flash-lite"]
 
 
 class Request(BaseModel):
@@ -39,18 +41,27 @@ def answer(req: Request):
         else:
             mime_type = "image/png"  # fallback
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                req.question,
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type=mime_type,
-                ),
-            ],
-        )
+        last_error = None
+        for model_name in FALLBACK_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        req.question,
+                        types.Part.from_bytes(
+                            data=image_bytes,
+                            mime_type=mime_type,
+                        ),
+                    ],
+                )
+                return {"answer": response.text.strip()}
+            except Exception as e:
+                last_error = e
+                if "not found" in str(e).lower() or "unsupported" in str(e).lower():
+                    continue
+                raise
 
-        return {"answer": response.text.strip()}
+        return {"error": f"Gemini request failed: {last_error}"}
 
     except Exception as e:
         return {"error": str(e)}
