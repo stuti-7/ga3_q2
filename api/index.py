@@ -78,9 +78,19 @@ def _normalize_base64_input(value: str) -> str:
 async def answer(request: FastAPIRequest):
     try:
         raw_body = await request.body()
-        payload = _parse_json_body(raw_body)
-        image_base64 = payload.get("image_base64", "")
-        question = payload.get("question", "")
+        payload: dict[str, Any] = {}
+
+        if raw_body:
+            payload = _parse_json_body(raw_body)
+        else:
+            try:
+                form_data = await request.form()
+                payload = {key: value for key, value in form_data.items()}
+            except Exception:
+                payload = {key: value for key, value in request.query_params.items()}
+
+        image_base64 = str(payload.get("image_base64", ""))
+        question = str(payload.get("question", ""))
 
         if not image_base64 or not question:
             return {"error": "Both image_base64 and question are required"}
