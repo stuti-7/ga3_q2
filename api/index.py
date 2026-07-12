@@ -5,8 +5,7 @@ from typing import Any
 from fastapi import FastAPI, Request as FastAPIRequest
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -18,10 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_key = os.getenv("GEMINI_API_KEY", "")
-client = genai.Client(api_key=api_key) if api_key else None
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
-FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gemini-flash-latest", "gemini-flash-lite-latest"]))
+aipipe_token = os.getenv("AIPIPE_TOKEN", "")
+client = OpenAI(api_key=aipipe_token, base_url="https://aipipe.org/openai/v1") if aipipe_token else None
+DEFAULT_MODEL = os.getenv("AIPIPE_MODEL", "gpt-4.1-mini")
+FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gpt-4.1-mini", "gpt-4o-mini"]))
 
 
 class Request(BaseModel):
@@ -108,7 +107,7 @@ async def answer(request: FastAPIRequest):
             mime_type = "image/png"  # fallback
 
         if client is None:
-            return {"error": "GEMINI_API_KEY is not configured"}
+            return {"error": "AIPIPE_TOKEN is not configured"}
 
         prompt = (
             f"{question}\n\n"
@@ -118,20 +117,24 @@ async def answer(request: FastAPIRequest):
             "units, or commas (e.g. 4089.35)."
         )
 
+        data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode()}"
+
         last_error = None
         for model_name in FALLBACK_MODELS:
             try:
-                response = client.models.generate_content(
+                response = client.chat.completions.create(
                     model=model_name,
-                    contents=[
-                        prompt,
-                        types.Part.from_bytes(
-                            data=image_bytes,
-                            mime_type=mime_type,
-                        ),
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {"type": "image_url", "image_url": {"url": data_url}},
+                            ],
+                        }
                     ],
                 )
-                answer = response.text.strip()
+                answer = response.choices[0].message.content.strip()
                 answer = answer.strip("*` \n")
                 return {"answer": answer}
             except Exception as e:
@@ -140,7 +143,7 @@ async def answer(request: FastAPIRequest):
                     continue
                 raise
 
-        return {"error": f"Gemini request failed: {last_error}"}
+        return {"error": f"AI Pipe request failed: {last_error}"}
 
     except Exception as e:
         return {"error": str(e)}
