@@ -111,6 +111,8 @@ async def answer(request: FastAPIRequest):
 
         prompt = (
             f"{question}\n\n"
+            "Look carefully at every relevant number, label, and gridline in the image "
+            "before answering - do not guess or round unless the exact value truly isn't visible. "
             "Answer with ONLY the direct answer, nothing else. "
             "No explanations, no full sentences, no markdown formatting. "
             "If the answer is a number, return just the number with no currency symbols, "
@@ -124,12 +126,13 @@ async def answer(request: FastAPIRequest):
             try:
                 response = client.chat.completions.create(
                     model=model_name,
+                    temperature=0,
                     messages=[
                         {
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": prompt},
-                                {"type": "image_url", "image_url": {"url": data_url}},
+                                {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
                             ],
                         }
                     ],
