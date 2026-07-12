@@ -20,8 +20,8 @@ app.add_middleware(
 
 api_key = os.getenv("GEMINI_API_KEY", "")
 client = genai.Client(api_key=api_key) if api_key else None
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-FALLBACK_MODELS = [DEFAULT_MODEL, "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gemini-flash-latest", "gemini-flash-lite-latest"]))
 
 
 class Request(BaseModel):
