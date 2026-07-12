@@ -110,20 +110,30 @@ async def answer(request: FastAPIRequest):
         if client is None:
             return {"error": "GEMINI_API_KEY is not configured"}
 
+        prompt = (
+            f"{question}\n\n"
+            "Answer with ONLY the direct answer, nothing else. "
+            "No explanations, no full sentences, no markdown formatting. "
+            "If the answer is a number, return just the number with no currency symbols, "
+            "units, or commas (e.g. 4089.35)."
+        )
+
         last_error = None
         for model_name in FALLBACK_MODELS:
             try:
                 response = client.models.generate_content(
                     model=model_name,
                     contents=[
-                        question,
+                        prompt,
                         types.Part.from_bytes(
                             data=image_bytes,
                             mime_type=mime_type,
                         ),
                     ],
                 )
-                return {"answer": response.text.strip()}
+                answer = response.text.strip()
+                answer = answer.strip("*` \n")
+                return {"answer": answer}
             except Exception as e:
                 last_error = e
                 if "not found" in str(e).lower() or "unsupported" in str(e).lower():
